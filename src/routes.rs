@@ -1,24 +1,14 @@
-use axum::{http::HeaderMap, Json};
+use axum::{debug_handler, extract::State, http::HeaderMap, Json};
 use octocrab::models::{
     events::payload::IssueCommentEventAction,
     issues::{Comment, Issue},
-    pulls::PullRequest,
-    Repository,
 };
 use serde::Deserialize;
-use serde_json::Value;
-use std::{fs::OpenOptions, io::Write};
 
-use octocrab::models::events::payload::IssueCommentEventPayload;
-
-use crate::github::create_issue_comment;
-
-// fn execute_action(github_event: &str, payload: EventPayload) {
-//     match github_event {
-//         "issue_comment" => handlers::handle_issue_comment()
-//         _ => panic!("Unknown GitHub event {github_event}")
-//     }
-// }
+use crate::{
+    command::{parse_command, Command},
+    AppState,
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -26,6 +16,7 @@ pub(crate) enum EventPayload {
     IssueComment(IssueCommentPayload),
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub(crate) struct IssueCommentPayload {
     pub action: IssueCommentEventAction,
@@ -35,61 +26,24 @@ pub(crate) struct IssueCommentPayload {
     pub repository: octocrab::models::Repository,
 }
 
-pub(crate) async fn post_github(headers: HeaderMap, Json(payload): Json<EventPayload>) {
+#[debug_handler]
+pub(crate) async fn post_github(
+    _headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(payload): Json<EventPayload>,
+) {
     match payload {
         EventPayload::IssueComment(ic) => {
-            let owner = &ic.repository.owner.unwrap().login;
-            let repo = &ic.repository.name;
-            let commenter = &ic.issue.user.login;
+            if let Some(comment_body) = &ic.comment.body {
+                let commands = parse_command(&state.app_user.login, &comment_body);
 
-            let client = octocrab::instance();
-            let pr_url = match client.issues(owner, repo).get(ic.issue.number).await {
-                Ok(iss) => {
-                    println!("Issue: {iss:#?}");
-                    if let Some(pr) = iss.pull_request {
-                        Some(pr.url)
-                    } else {
-                        None
+                for command in commands {
+                    match command {
+                        Command::Approve => crate::actions::approve_pull(&ic).await,
+                        // Command::Assign { users } => crate::actions::assign_users(&ic).await,
+                        _ => {}
                     }
                 }
-                Err(e) => panic!("Error getting issue: {e}"),
-            };
-
-            let commit_id = if let Some(pr_url) = pr_url {
-                println!("pr_url: {pr_url}");
-
-                let pr: PullRequest = client
-                    .pulls(owner, repo)
-                    .get(
-                        pr_url
-                            .path_segments()
-                            .unwrap()
-                            .last()
-                            .unwrap()
-                            .parse()
-                            .unwrap(),
-                    )
-                    .await
-                    .unwrap();
-                println!("{pr:#?}");
-
-                pr.merge_commit_sha
-            } else {
-                None
-            };
-
-            let body = format!(
-                "📌 {} has been approved by @{commenter}\n\nIt is now in the queue for this repository.",
-                if let Some(ci) = commit_id {
-                    format!("Commit {ci} ")
-                } else {
-                    "Pull request ".into()
-                }
-            );
-
-            match create_issue_comment(owner, repo, ic.issue.number, &body).await {
-                Ok(_) => {}
-                Err(e) => panic!("{e}"),
             }
         }
     }

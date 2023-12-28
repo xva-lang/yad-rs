@@ -2,8 +2,8 @@ use std::{
     collections::HashMap,
     error::Error,
     fs::File,
-    io::{self, Read},
-    net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs},
+    io::Read,
+    net::{Ipv4Addr, SocketAddrV4},
 };
 
 use serde::Deserialize;

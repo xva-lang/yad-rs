@@ -1,12 +1,6 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct Issue {
-    pub user: User,
-    pub pull_request: PullRequest,
-}
-
-#[derive(Debug, Deserialize)]
 pub(crate) struct Comment {
     pub author_association: String,
     pub body: String,
@@ -18,7 +12,7 @@ pub(crate) struct Comment {
     // url:
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub(crate) struct User {
     pub login: String,
 }

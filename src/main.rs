@@ -5,10 +5,24 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use github::model::User;
 
+mod actions;
+mod command;
 mod config;
 mod github;
 mod routes;
+
+#[derive(Debug, Clone)]
+struct AppState {
+    app_user: User,
+}
+
+async fn get_current_user() -> Result<User, Box<dyn Error>> {
+    let client = octocrab::instance();
+    let user: User = client.get("/user", <Option<&str>>::None).await?;
+    Ok(user)
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -27,12 +41,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .unwrap(),
     );
 
+    let state = AppState {
+        app_user: get_current_user().await?,
+    };
+
     // build our application with a single route
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
-        .route("/github", post(routes::post_github));
+        .route("/github", post(routes::post_github))
+        .with_state(state);
 
-    // run our app with hyper, listening globally on port 3000
     let addr = config.server().get_addr();
     println!("Listening on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
