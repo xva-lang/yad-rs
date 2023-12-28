@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     error::Error,
     fs::File,
     io::{self, Read},
@@ -10,6 +11,8 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub(crate) struct Config {
     server: Option<ServerConfig>,
+    repos: HashMap<String, RepoConfig>,
+    github: GithubConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -58,6 +61,14 @@ impl Config {
             None => ServerConfig::default(),
         }
     }
+
+    pub(crate) fn get_repo(&self, name: &str) -> Option<&RepoConfig> {
+        self.repos.get(name)
+    }
+
+    pub(crate) fn access_token(&self) -> &String {
+        &self.github.access_token
+    }
 }
 const DEFAULT_CONFIG_FILE_NAME: &str = "yad.toml";
 
@@ -72,4 +83,17 @@ pub(crate) fn get_config(config_file: Option<&str>) -> Result<Config, Box<dyn Er
     let mut buf = String::new();
     f.read_to_string(&mut buf)?;
     Ok(toml::from_str::<Config>(buf.as_str())?)
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct GithubConfig {
+    access_token: String,
+    client_id: String,
+    client_secret: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct RepoConfig {
+    owner: String,
+    secret: String,
 }

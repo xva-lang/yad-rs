@@ -1638,6 +1638,7 @@ dependencies = [
  "axum",
  "octocrab",
  "serde",
+ "serde_json",
  "tokio",
  "toml",
 ]

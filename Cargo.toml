@@ -9,5 +9,6 @@ edition = "2021"
 axum = "0.7.2"
 octocrab = "0.32.0"
 serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
 tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread"] }
 toml = "0.8.8"
