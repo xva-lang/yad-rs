@@ -7,7 +7,7 @@ use octocrab::models::{
 };
 use serde::Deserialize;
 use serde_json::Value;
-use std::{fs::OpenOptions, io::Write, os::macos::raw};
+use std::{fs::OpenOptions, io::Write};
 
 use octocrab::models::events::payload::IssueCommentEventPayload;
 
