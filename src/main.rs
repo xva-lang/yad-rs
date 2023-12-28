@@ -1,3 +1,8 @@
+use crate::config::get_config;
+
+mod config;
+
 fn main() {
-    println!("Hello, world!");
+    let config = get_config(None);
+    println!("{config:#?}")
 }
