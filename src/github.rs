@@ -56,10 +56,7 @@ pub(crate) async fn delete_assignee(
         .send()
         .await
     {
-        Ok(r) => {
-            println!("{}", r.text().await.unwrap());
-            Ok(())
-        }
+        Ok(_) => Ok(()),
         Err(e) => {
             error(
                 format!("Failed to delete assignee. Extended error: {e}"),
