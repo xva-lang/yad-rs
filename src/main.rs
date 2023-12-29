@@ -11,6 +11,7 @@ mod actions;
 mod command;
 mod config;
 mod github;
+mod logging;
 mod routes;
 
 #[derive(Debug, Clone)]
@@ -52,7 +53,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_state(state);
 
     let addr = config.server().get_addr();
-    println!("Listening on {addr}");
+    // println!("Listening on {addr}");
+    logging::info(format!("Listening on {addr}"), Some(&config));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 

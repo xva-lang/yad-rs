@@ -13,6 +13,7 @@ pub(crate) struct Config {
     server: Option<ServerConfig>,
     repos: HashMap<String, RepoConfig>,
     github: GithubConfig,
+    logging: Option<LoggingConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -69,6 +70,10 @@ impl Config {
     pub(crate) fn access_token(&self) -> &String {
         &self.github.access_token
     }
+
+    pub(crate) fn logging(&self) -> &Option<LoggingConfig> {
+        &self.logging
+    }
 }
 const DEFAULT_CONFIG_FILE_NAME: &str = "yad.toml";
 
@@ -96,4 +101,16 @@ pub(crate) struct GithubConfig {
 pub(crate) struct RepoConfig {
     owner: String,
     secret: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct LoggingConfig {
+    pub journalctl: Option<JournalctlLogging>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct JournalctlLogging {
+    /// The value to use as the `SYSLOG_IDENTIFIER` for `journalctl`. If this value is `None`,
+    /// the default value of `yad` is used.
+    pub identifier: Option<String>,
 }

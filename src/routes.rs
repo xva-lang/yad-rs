@@ -6,6 +6,7 @@ use octocrab::models::{
 use serde::Deserialize;
 
 use crate::{
+    actions::{ping, remove_assignee, set_assignee},
     command::{parse_command, Command},
     AppState,
 };
@@ -40,7 +41,9 @@ pub(crate) async fn post_github(
                 for command in commands {
                     match command {
                         Command::Approve => crate::actions::approve_pull(&ic).await,
-                        // Command::Assign { users } => crate::actions::assign_users(&ic).await,
+                        Command::Ping => ping(&ic).await,
+                        Command::Assign { user } => set_assignee(&ic, user).await,
+                        Command::RemoveAssignment => remove_assignee(&ic).await,
                         _ => {}
                     }
                 }

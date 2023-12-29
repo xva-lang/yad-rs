@@ -1,3 +1,7 @@
+use regex::Regex;
+
+use crate::{config::get_config, logging::info};
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) enum Command {
@@ -6,13 +10,24 @@ pub(crate) enum Command {
 
     /// Assign `users` as assignees. If `users` is `None`, the user who issued the command is assigned by default.
     Assign {
-        users: Option<Vec<String>>,
+        user: Option<String>,
     },
+
+    RemoveAssignment,
 }
 
 impl Command {}
 
+fn is_tag_and_not_pattern(input: &str, pattern: &String) -> Option<String> {
+    if input.starts_with("@") && input != pattern {
+        Some(input.replace("@", ""))
+    } else {
+        None
+    }
+}
+
 pub(crate) fn parse_command(bot_name: &str, input: &str) -> Vec<Command> {
+    let config = get_config(None).unwrap();
     let bot_name_pattern = format!("@{bot_name}");
 
     let maybe_commands = input
@@ -39,16 +54,18 @@ pub(crate) fn parse_command(bot_name: &str, input: &str) -> Vec<Command> {
                 continue;
             }
 
-            if word == "r+" {
-                commands.push(Command::Approve);
-            }
-
-            if word == "c" || word == "claim" {
-                commands.push(Command::Assign {
-                    users: (pieces.clone()).skip(i).next().map_or(None, |users| {
-                        Some(users.split(",").map(|x| x.into()).collect())
-                    }),
-                })
+            match word {
+                "hello" => commands.push(Command::Ping),
+                "r+" => commands.push(Command::Approve),
+                "c" | "claim" => commands.push(Command::Assign { user: None }),
+                "a" | "assign" => commands.push(Command::Assign {
+                    user: (pieces.clone())
+                        .skip(i + 1)
+                        .next()
+                        .map_or(None, |name| is_tag_and_not_pattern(name, &bot_name_pattern)),
+                }),
+                "ra" | "remove-assignment" => commands.push(Command::RemoveAssignment),
+                _ => info(format!("Unknown command: {word}"), Some(&config)),
             }
         }
     }
