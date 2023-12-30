@@ -9,7 +9,7 @@ const DEFAULT_SYSLOG_IDENTIFIER: &str = "yad";
 mod systemd {
     use super::DEFAULT_SYSLOG_IDENTIFIER;
     use crate::config::Config;
-    use log::Level;
+    use log::{Level, Record};
     use systemd_journal_logger::JournalLog;
 
     fn log_journal(config: Option<&Config>, syslog_identifier: &mut String) -> bool {
@@ -58,8 +58,8 @@ mod systemd {
 }
 
 pub(crate) fn info(input: String, config: Option<&Config>) {
-    #[cfg(target_os = "linux")]
-    systemd::journal_level(input, config, Level::Info);
+    //#[cfg(target_os = "linux")]
+    //systemd::journal_level(input, config, Level::Info);
 
     if let Some(c) = config {
         if let Some(l) = c.logging() {
@@ -68,11 +68,14 @@ pub(crate) fn info(input: String, config: Option<&Config>) {
             }
         }
     }
+
+    #[cfg(target_os = "linux")]
+    systemd::journal_level(input, config, Level::Info);
 }
 
 pub(crate) fn error(input: String, config: Option<&Config>) {
-    #[cfg(target_os = "linux")]
-    systemd::journal_level(input, config, Level::Error);
+    //#[cfg(target_os = "linux")]
+    //systemd::journal_level(input, config, Level::Error);
 
     if let Some(c) = config {
         if let Some(l) = c.logging() {
@@ -81,4 +84,7 @@ pub(crate) fn error(input: String, config: Option<&Config>) {
             }
         }
     }
+
+    #[cfg(target_os = "linux")]
+    systemd::journal_level(input, config, Level::Error);
 }
