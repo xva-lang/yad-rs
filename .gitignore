@@ -2,3 +2,4 @@
 yad.toml
 *.db
 *.db-*
+*.pem

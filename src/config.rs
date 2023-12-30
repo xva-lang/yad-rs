@@ -15,7 +15,7 @@ use crate::CONFIG;
 pub(crate) struct Config {
     server: Option<ServerConfig>,
     repos: HashMap<String, RepoConfig>,
-    github: GithubConfig,
+    pub github: GithubConfig,
     logging: Option<LoggingConfig>,
     database: Option<DatabaseConfig>,
     pub actions: Option<ActionsConfig>,
@@ -117,14 +117,28 @@ pub(crate) fn get_config() -> Arc<Config> {
 #[derive(Debug, Deserialize)]
 pub(crate) struct GithubConfig {
     access_token: String,
+    oauth: GithubOauthConfig,
+    pub app: GithubAppConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct GithubAppConfig {
+    pub app_id: String,
+    client_id: String,
+    client_secret: String,
+    pub private_key_file: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct GithubOauthConfig {
     client_id: String,
     client_secret: String,
 }
-
 #[derive(Debug, Deserialize)]
 pub(crate) struct RepoConfig {
     owner: String,
     secret: String,
+    tests: Option<TestsConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -151,4 +165,17 @@ pub(crate) struct ActionsConfig {
 #[derive(Debug, Deserialize)]
 pub(crate) struct PingConfig {
     pub message: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct TestsConfig {
+    custom: Option<CustomTestConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct CargoTestConfig {}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct CustomTestConfig {
+    command: String,
 }

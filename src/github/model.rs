@@ -5,6 +5,7 @@ use url::Url;
 
 pub(crate) mod pulls;
 pub(crate) mod repo;
+pub(crate) mod checks;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct User {

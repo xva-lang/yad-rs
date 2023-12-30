@@ -9,13 +9,14 @@ edition = "2021"
 async-sqlite = "0.2.0"
 axum = { version = "0.7.2", features = ["macros"] }
 chrono = { version = "0.4.31", features = ["serde"] }
+jsonwebtoken = "9.2.0"
 lazy_static = "1.4.0"
 log = "0.4.20"
 regex = "1.10.2"
 reqwest = "0.11.23"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0.108"
-tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread", "time"] }
 toml = "0.8.8"
 url = { version = "2.5.0", features = ["serde"] }
 

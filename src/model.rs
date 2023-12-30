@@ -2,57 +2,100 @@ use async_sqlite::rusqlite::{
     types::{FromSql, ToSqlOutput, Value},
     Row, ToSql,
 };
-use serde::Deserialize;
 
-#[derive(Debug)]
-pub(crate) enum PullRequestStatus {
-    Pending,
-    Approved,
-    Rejected,
+/// Convenience macro for auto-`impl`ing the conversion trait for enum variants to and from SQL values
+///
+/// Derives [`Debug`] and generates `impl`s for [`ToSql`], [`FromSql`] and [`PartialEq`].
+///
+/// # Examples
+/// ```
+/// int_enum_sql! {
+///     EnumName {
+///         Variant1 => 1,
+///         Variant2 => 2,
+///         Variant3 => 3
+///     }   
+/// }
+/// ```
+macro_rules! int_enum_sql {
+
+    ( $name:ident { $( $variant:tt => $value:tt ),+ } ) => {
+        #[derive(Debug)]
+        #[repr(i64)]
+        pub(crate) enum $name {
+            $(
+                $variant
+            ),+
+        }
+
+        impl ToSql for $name {
+            fn to_sql(&self) -> async_sqlite::rusqlite::Result<ToSqlOutput<'_>> {
+                match self {
+                    $(
+                        $name::$variant => Ok(ToSqlOutput::Owned(Value::Integer(
+                            $value,
+                        )))
+                    ),+
+                }
+            }
+        }
+
+        impl FromSql for $name {
+            fn column_result(
+                value: async_sqlite::rusqlite::types::ValueRef<'_>,
+            ) -> async_sqlite::rusqlite::types::FromSqlResult<Self> {
+                match value {
+                    async_sqlite::rusqlite::types::ValueRef::Integer(v) => match v {
+                        $( $value => Ok($name::$variant), )+
+                        _ => unreachable!(),
+                    },
+                    _ => unreachable!(),
+                }
+            }
+        }
+
+        impl PartialEq for $name {
+            fn eq(&self, other: &Self) -> bool {
+                core::mem::discriminant(self) == core::mem::discriminant(other)
+            }
+        }
+    };
 }
 
 const PULL_REQUEST_STATUS_PENDING: i64 = 0;
 const PULL_REQUEST_STATUS_APPROVED: i64 = 1;
 const PULL_REQUEST_STATUS_REJECTED: i64 = 2;
 
-impl FromSql for PullRequestStatus {
-    fn column_result(
-        value: async_sqlite::rusqlite::types::ValueRef<'_>,
-    ) -> async_sqlite::rusqlite::types::FromSqlResult<Self> {
-        match value {
-            async_sqlite::rusqlite::types::ValueRef::Integer(v) => match v {
-                PULL_REQUEST_STATUS_PENDING => Ok(Self::Pending),
-                PULL_REQUEST_STATUS_APPROVED => Ok(Self::Approved),
-                PULL_REQUEST_STATUS_REJECTED => Ok(Self::Rejected),
-                _ => unreachable!(),
-            },
-            _ => unreachable!(),
-        }
+int_enum_sql! {
+    PullRequestStatus {
+        Pending => PULL_REQUEST_STATUS_PENDING,
+        Approved => PULL_REQUEST_STATUS_APPROVED,
+        Rejected => PULL_REQUEST_STATUS_REJECTED
     }
 }
 
-impl ToSql for PullRequestStatus {
-    fn to_sql(&self) -> async_sqlite::rusqlite::Result<ToSqlOutput<'_>> {
-        match self {
-            PullRequestStatus::Pending => Ok(ToSqlOutput::Owned(Value::Integer(
-                PULL_REQUEST_STATUS_PENDING,
-            ))),
-            PullRequestStatus::Approved => Ok(ToSqlOutput::Owned(Value::Integer(
-                PULL_REQUEST_STATUS_APPROVED,
-            ))),
-            PullRequestStatus::Rejected => Ok(ToSqlOutput::Owned(Value::Integer(
-                PULL_REQUEST_STATUS_REJECTED,
-            ))),
-        }
+const TEST_STATUS_WAITING: i64 = 0;
+const TEST_STATUS_IN_PROGRESS: i64 = 1;
+const TEST_STATUS_SUCCEEDED: i64 = 2;
+const TEST_STATUS_FAILED: i64 = 3;
+
+int_enum_sql! {
+    TestStatus {
+        Waiting => TEST_STATUS_WAITING,
+        InProgress => TEST_STATUS_IN_PROGRESS,
+        Succeeded => TEST_STATUS_SUCCEEDED,
+        Failed => TEST_STATUS_FAILED
     }
 }
+
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct PullRequest {
-    id: u64,
-    repository: String,
-    status: PullRequestStatus,
-    merge_commit_id: String,
-    head_commit_id: String,
+    pub id: u64,
+    pub repository: String,
+    pub status: PullRequestStatus,
+    merge_commit_id: Option<String>,
+    pub head_commit_id: String,
     head_ref: String,
     base_ref: String,
     assignee: Option<String>,
@@ -81,6 +124,22 @@ impl From<&Row<'_>> for PullRequest {
             rollup: value.get(11).unwrap(),
             squash: value.get(12).unwrap(),
             delegate: value.get(13).unwrap(),
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub(crate) struct Test {
+    pull_request_id: u64,
+    status: TestStatus,
+}
+
+impl From<&Row<'_>> for Test {
+    fn from(value: &Row<'_>) -> Self {
+        Self {
+            pull_request_id: value.get(0).unwrap(),
+            status: value.get(1).unwrap(),
         }
     }
 }

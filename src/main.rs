@@ -1,12 +1,15 @@
-use std::{error::Error, sync::Arc};
+use std::{error::Error, sync::Arc, time::Duration};
 
 use crate::config::{load_config, Config};
+use async_sqlite::{rusqlite::params, PoolBuilder};
 use axum::{
     routing::{get, post},
     Router,
 };
 use config::get_config;
 use github::{model::User, GithubClient};
+use logging::{error, info};
+use model::{PullRequest, PullRequestStatus};
 
 mod actions;
 mod command;
@@ -15,6 +18,7 @@ mod db;
 mod github;
 mod logging;
 mod model;
+mod queue;
 mod routes;
 
 lazy_static::lazy_static! {
@@ -32,6 +36,7 @@ async fn get_current_user() -> Result<User, Box<dyn Error>> {
     Ok(user)
 }
 
+const TESTS_ROOT_DIR: &str = "./test-queue";
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let config = match load_config(None) {
@@ -56,7 +61,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // println!("Listening on {addr}");
     logging::info(format!("Listening on {addr}"), Some(&config));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+
+    tokio::spawn(queue::queue_server());
+
     axum::serve(listener, app).await.unwrap();
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn fails() {
+        panic!()
+    }
 }
