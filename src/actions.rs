@@ -12,21 +12,34 @@ use crate::{
     routes::IssueCommentPayload,
 };
 
+const DEFAULT_PING_MESSAGE: &str = "Hi @{{COMMENTER}}! Yes, I'm still alive!";
+const PING_MESSAGE_COMMENTER_PATTERN: &str = "{{COMMENTER}}";
 pub(crate) async fn ping(ic: &IssueCommentPayload) {
     let owner = &ic.repository.owner.as_ref().unwrap().login;
     let repo = &ic.repository.name;
     let commenter = &ic.issue.user.login;
+    let config = get_config();
+    let ping_message = match config.actions {
+        Some(ref a) => match a.ping {
+            Some(ref p) => match p.message {
+                Some(ref msg) => msg,
+                None => DEFAULT_PING_MESSAGE,
+            },
+            None => DEFAULT_PING_MESSAGE,
+        },
+        None => DEFAULT_PING_MESSAGE,
+    };
 
     info(
         format!("@{commenter} has tried to check whether service is still alive"),
-        Some(&load_config(None).unwrap()),
+        Some(&config),
     );
 
     match create_issue_comment(
         owner,
         repo,
         ic.issue.number,
-        &format!("Hi @{commenter}! Yes, I'm still alive!"),
+        &ping_message.replace(PING_MESSAGE_COMMENTER_PATTERN, &commenter),
     )
     .await
     {

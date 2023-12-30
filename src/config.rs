@@ -18,6 +18,7 @@ pub(crate) struct Config {
     github: GithubConfig,
     logging: Option<LoggingConfig>,
     database: Option<DatabaseConfig>,
+    pub actions: Option<ActionsConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -141,3 +142,13 @@ pub(crate) struct JournalctlLogging {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct StdoutLogging {}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ActionsConfig {
+    pub ping: Option<PingConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct PingConfig {
+    pub message: Option<String>,
+}
