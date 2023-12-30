@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-sqlite = "0.2.0"
 axum = { version = "0.7.2", features = ["macros"] }
 chrono = { version = "0.4.31", features = ["serde"] }
 

@@ -10,6 +10,7 @@ use github::model::User;
 mod actions;
 mod command;
 mod config;
+mod db;
 mod github;
 mod logging;
 mod routes;
