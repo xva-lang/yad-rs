@@ -7,8 +7,6 @@
 // ";
 // connection.execute(query).unwrap();
 
-
-
-fn execute(query: &str) -> Result<(), Box<dyn Error>> {
-    Ok(())
-}
+// fn execute(query: &str) -> Result<(), Box<dyn Error>> {
+//     Ok(())
+// }

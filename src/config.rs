@@ -4,9 +4,12 @@ use std::{
     fs::File,
     io::Read,
     net::{Ipv4Addr, SocketAddrV4},
+    sync::Arc,
 };
 
 use serde::Deserialize;
+
+use crate::CONFIG;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct Config {
@@ -77,7 +80,7 @@ impl Config {
 }
 const DEFAULT_CONFIG_FILE_NAME: &str = "yad.toml";
 
-pub(crate) fn get_config(config_file: Option<&str>) -> Result<Config, Box<dyn Error>> {
+pub(crate) fn load_config(config_file: Option<&str>) -> Result<Config, Box<dyn Error>> {
     let file_name = if let Some(cf) = config_file {
         cf
     } else {
@@ -90,6 +93,9 @@ pub(crate) fn get_config(config_file: Option<&str>) -> Result<Config, Box<dyn Er
     Ok(toml::from_str::<Config>(buf.as_str())?)
 }
 
+pub(crate) fn get_config() -> Arc<Config> {
+    CONFIG.clone()
+}
 #[derive(Debug, Deserialize)]
 pub(crate) struct GithubConfig {
     access_token: String,

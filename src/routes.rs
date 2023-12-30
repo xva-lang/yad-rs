@@ -1,13 +1,11 @@
-use axum::{debug_handler, extract::State, http::HeaderMap, Json};
-use octocrab::models::{
-    events::payload::IssueCommentEventAction,
-    issues::{Comment, Issue},
-};
+use axum::{debug_handler, extract::State, Json};
+
 use serde::Deserialize;
 
 use crate::{
     actions::{ping, remove_assignee, set_assignee},
     command::{parse_command, Command},
+    github::model::{Comment, Issue, IssueCommentEventAction, Repository},
     AppState,
 };
 
@@ -24,12 +22,12 @@ pub(crate) struct IssueCommentPayload {
     pub issue: Issue,
     pub comment: Comment,
 
-    pub repository: octocrab::models::Repository,
+    pub repository: Repository,
 }
 
 #[debug_handler]
 pub(crate) async fn post_github(
-    _headers: HeaderMap,
+    // _headers: HeaderMap,
     State(state): State<AppState>,
     Json(payload): Json<EventPayload>,
 ) {
@@ -40,7 +38,7 @@ pub(crate) async fn post_github(
 
                 for command in commands {
                     match command {
-                        Command::Approve => crate::actions::approve_pull(&ic).await,
+                        // Command::Approve => crate::actions::approve_pull(&ic).await,
                         Command::Ping => ping(&ic).await,
                         Command::Assign { user } => set_assignee(&ic, user).await,
                         Command::RemoveAssignment => remove_assignee(&ic).await,

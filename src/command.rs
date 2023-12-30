@@ -1,6 +1,6 @@
-use regex::Regex;
+// use regex::Regex;
 
-use crate::{config::get_config, logging::info};
+use crate::{config::load_config, logging::info};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -27,7 +27,7 @@ fn is_tag_and_not_pattern(input: &str, pattern: &String) -> Option<String> {
 }
 
 pub(crate) fn parse_command(bot_name: &str, input: &str) -> Vec<Command> {
-    let config = get_config(None).unwrap();
+    let config = load_config(None).unwrap();
     let bot_name_pattern = format!("@{bot_name}");
 
     let maybe_commands = input

@@ -1,11 +1,12 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
-use crate::config::get_config;
+use crate::config::{load_config, Config};
 use axum::{
     routing::{get, post},
     Router,
 };
-use github::model::User;
+use config::get_config;
+use github::{model::User, GithubClient};
 
 mod actions;
 mod command;
@@ -15,33 +16,30 @@ mod github;
 mod logging;
 mod routes;
 
+lazy_static::lazy_static! {
+    static ref CONFIG: Arc<Config> = Arc::new(load_config(None).unwrap());
+}
 #[derive(Debug, Clone)]
 struct AppState {
     app_user: User,
 }
 
 async fn get_current_user() -> Result<User, Box<dyn Error>> {
-    let client = octocrab::instance();
-    let user: User = client.get("/user", <Option<&str>>::None).await?;
+    let config = get_config();
+    let client = GithubClient::new(config.access_token());
+    let user: User = client.get_authenticated_user().await?;
     Ok(user)
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let config = match get_config(None) {
+    let config = match load_config(None) {
         Ok(c) => c,
         Err(e) => panic!(
             "Failed to read the configuration file. Extended error: {}",
             e
         ),
     };
-
-    octocrab::initialise(
-        octocrab::Octocrab::builder()
-            .personal_token(config.access_token().to_string())
-            .build()
-            .unwrap(),
-    );
 
     let state = AppState {
         app_user: get_current_user().await?,
