@@ -1,7 +1,7 @@
 use async_sqlite::rusqlite::{params, types::Value};
 
 use crate::{
-    config::{get_config, load_config},
+    config::get_config,
     github::{
         create_issue_comment,
         model::{pulls::PullRequest, repo::Repository},
@@ -151,7 +151,7 @@ values (
                     Value::Null
                 ],
             ) {
-                Ok(r) => Ok(()),
+                Ok(_) => Ok(()),
                 Err(e) => Err(e),
             }
         })
