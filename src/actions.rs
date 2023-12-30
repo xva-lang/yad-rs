@@ -1,7 +1,14 @@
+use async_sqlite::rusqlite::{params, types::Value};
+
 use crate::{
     config::{get_config, load_config},
-    github::{create_issue_comment, GithubClient},
+    github::{
+        create_issue_comment,
+        model::{pulls::PullRequest, repo::Repository},
+        GithubClient,
+    },
     logging::{error, info},
+    model::PullRequestStatus,
     routes::IssueCommentPayload,
 };
 
@@ -91,51 +98,49 @@ pub(crate) async fn remove_assignee(ic: &IssueCommentPayload) {
     }
 }
 
-// pub(crate) async fn approve_pull(ic: &IssueCommentPayload) {}
+pub(crate) async fn save_pull_to_db(
+    pr: PullRequest,
+    repo: Repository,
+) -> Result<(), async_sqlite::Error> {
+    let config = get_config();
+    let client = async_sqlite::ClientBuilder::new()
+        .path(config.database_path())
+        .open()
+        .await
+        .unwrap();
 
-// pub(crate) async fn delete_assignee(
-//     owner: &str,
-//     repo: &str,
-//     issue_number: u64,
-//     assignee: &str,
-// ) -> Result<(), reqwest::Error> {
-//     //  -H "Accept: application/vnd.github+json" \
-//     //   -H "Authorization: Bearer <YOUR-TOKEN>" \
-//     //   -H "X-GitHub-Api-Version: 2022-11-28" \
+    const STATEMENT: &str = r#"
+insert into pull_requests (
+    id, repository, status, merge_commit_id, 
+    head_commit_id, head_ref, base_ref, assignee, 
+    approved_by, priority, try_test, rollup, squash, delegate)
+values (
+    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14);"#;
 
-//     let route =
-//         format!("https://api.github.com/repos/{owner}/{repo}/issues/{issue_number}/assignees");
-//     let config = load_config(None).unwrap();
-
-//     #[derive(Serialize)]
-//     struct DeleteAssignees<'a> {
-//         // Zero allocations, in a serde Serializable? got me feelin some type of way!
-//         assignees: &'a [&'a str],
-//     }
-
-//     let body = serde_json::to_string(&DeleteAssignees {
-//         assignees: &[assignee],
-//     })
-//     .unwrap();
-
-//     let client = reqwest::Client::new();
-//     match client
-//         .delete(route)
-//         .bearer_auth(config.access_token())
-//         .header("User-Agent", "yad")
-//         .header("Accept", "application/vnd.github+json")
-//         .header("X-GitHub-Api-Version", "2022-11-28")
-//         .body(body)
-//         .send()
-//         .await
-//     {
-//         Ok(_) => Ok(()),
-//         Err(e) => {
-//             error(
-//                 format!("Failed to delete assignee. Extended error: {e}"),
-//                 Some(&config),
-//             );
-//             Err(e)
-//         }
-//     }
-// }
+    client
+        .conn(move |conn| {
+            match conn.execute(
+                STATEMENT,
+                params![
+                    pr.id,
+                    repo.full_name,
+                    PullRequestStatus::Pending,
+                    pr.merge_commit_sha,
+                    pr.head.sha,
+                    pr.head.label,
+                    pr.base.label,
+                    pr.assignee.map_or(Value::Null, |x| Value::Text(x.login)),
+                    Value::Null,
+                    0,
+                    false,
+                    false,
+                    false,
+                    Value::Null
+                ],
+            ) {
+                Ok(r) => Ok(()),
+                Err(e) => Err(e),
+            }
+        })
+        .await
+}

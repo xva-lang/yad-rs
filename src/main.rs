@@ -14,6 +14,7 @@ mod config;
 mod db;
 mod github;
 mod logging;
+mod model;
 mod routes;
 
 lazy_static::lazy_static! {

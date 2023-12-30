@@ -3,15 +3,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-pub(crate) struct PullRequest {
-    pub url: String,
-    pub html_url: String,
-    pub diff_url: String,
-    pub patch_url: String,
-    pub merged_at: Option<String>,
-}
+pub(crate) mod pulls;
+pub(crate) mod repo;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct User {
@@ -31,7 +24,10 @@ pub(crate) struct User {
     pub repos_url: String,
     pub events_url: String,
     pub received_events_url: String,
+
+    #[serde(rename = "type")]
     pub type_field: String,
+
     pub site_admin: bool,
 }
 
@@ -187,17 +183,4 @@ pub(crate) struct Issue {
     pub closed_at: Option<chrono::DateTime<chrono::Utc>>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[non_exhaustive]
-pub(crate) struct Repository {
-    pub id: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub node_id: Option<String>,
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub full_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub owner: Option<User>,
 }

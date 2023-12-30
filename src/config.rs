@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use serde::Deserialize;
+use serde::{de::IntoDeserializer, Deserialize};
 
 use crate::CONFIG;
 
@@ -17,6 +17,12 @@ pub(crate) struct Config {
     repos: HashMap<String, RepoConfig>,
     github: GithubConfig,
     logging: Option<LoggingConfig>,
+    database: Option<DatabaseConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub(crate) struct DatabaseConfig {
+    path: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -28,6 +34,7 @@ pub(crate) struct ServerConfig {
 
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 8000;
+const DEFAULT_DATABASE_PATH: &str = "./yad.db";
 
 impl ServerConfig {
     pub(crate) fn get_addr(&self) -> SocketAddrV4 {
@@ -77,6 +84,16 @@ impl Config {
     pub(crate) fn logging(&self) -> &Option<LoggingConfig> {
         &self.logging
     }
+
+    pub(crate) fn database_path(&self) -> String {
+        match &self.database {
+            Some(db) => match &db.path {
+                Some(p) => p.into(),
+                None => DEFAULT_DATABASE_PATH.into(),
+            },
+            None => DEFAULT_DATABASE_PATH.into(),
+        }
+    }
 }
 const DEFAULT_CONFIG_FILE_NAME: &str = "yad.toml";
 
@@ -112,6 +129,7 @@ pub(crate) struct RepoConfig {
 #[derive(Debug, Deserialize)]
 pub(crate) struct LoggingConfig {
     pub journalctl: Option<JournalctlLogging>,
+    pub stdout: Option<StdoutLogging>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -120,3 +138,6 @@ pub(crate) struct JournalctlLogging {
     /// the default value of `yad` is used.
     pub identifier: Option<String>,
 }
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct StdoutLogging {}

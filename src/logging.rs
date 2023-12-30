@@ -1,15 +1,17 @@
+use crate::config::Config;
+
 #[allow(unused_imports)]
 use log::{Level, Record};
-
-#[cfg(target_os = "linux")]
-use systemd_journal_logger::JournalLog;
-
-use crate::config::Config;
 
 const DEFAULT_SYSLOG_IDENTIFIER: &str = "yad";
 
 #[cfg(target_os = "linux")]
 mod systemd {
+    use super::DEFAULT_SYSLOG_IDENTIFIER;
+    use crate::config::Config;
+    use log::Level;
+    use systemd_journal_logger::JournalLog;
+
     fn log_journal(config: Option<&Config>, syslog_identifier: &mut String) -> bool {
         match config {
             Some(cfg) => match cfg.logging() {
@@ -29,7 +31,7 @@ mod systemd {
         }
     }
 
-    fn journal_level(input: String, config: Option<&Config>, level: Level) {
+    pub(super) fn journal_level(input: String, config: Option<&Config>, level: Level) {
         let mut syslog_identifier = DEFAULT_SYSLOG_IDENTIFIER.to_string();
 
         if log_journal(config, &mut syslog_identifier) {
@@ -57,10 +59,26 @@ mod systemd {
 
 pub(crate) fn info(input: String, config: Option<&Config>) {
     #[cfg(target_os = "linux")]
-    journal_level(input, config, Level::Info)
+    systemd::journal_level(input, config, Level::Info);
+
+    if let Some(c) = config {
+        if let Some(l) = c.logging() {
+            if let Some(_) = &l.stdout {
+                println!("{input}")
+            }
+        }
+    }
 }
 
 pub(crate) fn error(input: String, config: Option<&Config>) {
     #[cfg(target_os = "linux")]
-    journal_level(input, config, Level::Error)
+    systemd::journal_level(input, config, Level::Error);
+
+    if let Some(c) = config {
+        if let Some(l) = c.logging() {
+            if let Some(_) = &l.stdout {
+                println!("{input}")
+            }
+        }
+    }
 }
