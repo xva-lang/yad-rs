@@ -66,12 +66,12 @@ pub(crate) async fn queue_server() {
                 .await
             {
                 Ok(r) => {
-                    if let Err(e) = gh_client.create_check(owner, repo, head_sha).await {
-                        error(
-                            format!("Failed to create CI check. Extended error: {e}"),
-                            Some(&config),
-                        );
-                    };
+                    // if let Err(e) = gh_client.create_check(owner, repo, head_sha).await {
+                    //     error(
+                    //         format!("Failed to create CI check. Extended error: {e}"),
+                    //         Some(&config),
+                    //     );
+                    // };
                 }
                 Err(e) => {
                     error(
