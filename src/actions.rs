@@ -249,6 +249,14 @@ pub(crate) async fn approve_pull(ic: &IssueCommentPayload) {
         }
     };
 
+    if let Err(e) = set_pull_request_approved(pull_id, commenter.clone()).await {
+        error(
+            format!("Failed to save approved status for pull request #{pull_number}. {e}"),
+            Some(&config),
+        );
+        return;
+    }
+
     match enqueue_merge(pull_id).await {
         Ok(_) => {}
         Err(e) => {
