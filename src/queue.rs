@@ -37,8 +37,8 @@ pub(crate) async fn queue_server() {
         if pull_requests.len() == 0 {
             // info(), config)
             println!("Nothing to do");
-            tokio::time::sleep(SLEEP_LENGTH).await;
-            continue;
+          tokio::time::sleep(SLEEP_LENGTH).await;
+        //    continue;
         }
 
         let test_queue = pull_requests
@@ -49,7 +49,7 @@ pub(crate) async fn queue_server() {
         if test_queue.len() == 0 {
             println!("No approved merges in queue");
             tokio::time::sleep(SLEEP_LENGTH).await;
-            continue;
+          //  continue;
         }
 
         for test in test_queue {
@@ -82,7 +82,7 @@ pub(crate) async fn queue_server() {
                 }
             }
         }
-
+        handle_merge_queue(&pool, &gh_client, &config).await.unwrap();
         tokio::time::sleep(SLEEP_LENGTH).await;
     }
 }
@@ -98,8 +98,7 @@ from pull_requests pr
 left join merges m on pr.id = m.pull_request_id
 where
     m.pull_request_id is not null and 
-    m.status = ?1    
-}";
+    m.status = ?1";
     let merge_prs = pool
         .conn(|conn| {
             let mut stmt = conn.prepare(sql).unwrap();
