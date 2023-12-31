@@ -9,7 +9,7 @@ use crate::{
     },
     logging::{error, info},
     model::PullRequestStatus,
-    queue::queue_merge,
+    queue::enqueue_merge,
     routes::IssueCommentPayload,
 };
 
@@ -248,7 +248,7 @@ pub(crate) async fn approve_pull(ic: &IssueCommentPayload) {
         }
     };
 
-    match queue_merge(pull_id).await {
+    match enqueue_merge(pull_id).await {
         Ok(_) => {}
         Err(e) => {
             error(

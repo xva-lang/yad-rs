@@ -5,7 +5,7 @@ use async_sqlite::{rusqlite::params, PoolBuilder};
 use crate::{
     config::{get_config, Config},
     github::GithubClient,
-    logging::error,
+    logging::{error, info},
     model::{MergeStatus, PullRequest, PullRequestStatus},
 };
 
@@ -87,6 +87,76 @@ pub(crate) async fn queue_server() {
     }
 }
 
+async fn handle_merge_queue(
+    pool: &async_sqlite::Pool,
+    client: &GithubClient<'_>,
+    config: &Config,
+) -> Result<(), async_sqlite::Error> {
+    let sql = r"
+select pr.* 
+from pull_requests pr 
+left join merges m on pr.id = m.pull_request_id
+where
+    m.pull_request_id is not null and 
+    m.status = ?1    
+}";
+    let merge_prs = pool
+        .conn(|conn| {
+            let mut stmt = conn.prepare(sql).unwrap();
+            Ok(stmt
+                .query_map([MergeStatus::Waiting], |r| Ok(PullRequest::from(r)))
+                .unwrap()
+                .into_iter()
+                .map(|x| x.unwrap())
+                .collect::<Vec<PullRequest>>())
+        })
+        .await?;
+
+    for pr in merge_prs {
+        let parts = pr.repository.split("/").collect::<Vec<_>>();
+        let (owner, repo) = (parts.get(0).unwrap(), parts.get(1).unwrap());
+        let pr_id = pr.id;
+        let pull_number = pr.number;
+
+        info(
+            format!("Starting merge for pull request #{pull_number}"),
+            Some(&config),
+        );
+
+        pool.conn(move |conn| {
+            conn.execute(
+                "update merges set status = ?1 where pull_request_id = ?2",
+                params![MergeStatus::Started, pr_id],
+            )
+        })
+        .await
+        .unwrap();
+
+        if let Err(e) = client.merge_pull(owner, repo, pr.number as u64).await {
+            error(format!("Failed to merge pull request. {e}"), Some(&config));
+            pool.conn(move |conn| {
+                conn.execute(
+                    "update merges set status = ?1 where pull_request_id = ?2",
+                    params![MergeStatus::Failed, pr_id],
+                )
+            })
+            .await
+            .unwrap();
+        } else {
+            pool.conn(move |conn| {
+                conn.execute(
+                    "delete from merges where pull_request_id = ?1",
+                    params![pr_id],
+                )
+            })
+            .await
+            .unwrap();
+        }
+    }
+
+    Ok(())
+}
+
 async fn get_approved_pull_requests(
     pool: &async_sqlite::Pool,
 ) -> Result<Vec<PullRequest>, async_sqlite::Error> {
@@ -110,7 +180,7 @@ where
     .await
 }
 
-pub(crate) async fn queue_merge(pull_request_id: u64) -> Result<(), async_sqlite::Error> {
+pub(crate) async fn enqueue_merge(pull_request_id: u64) -> Result<(), async_sqlite::Error> {
     let sql = "insert into merges (pull_request_id, status) values (?1, ?2)";
     let config = get_config();
     let pool = PoolBuilder::new()

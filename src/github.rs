@@ -566,6 +566,23 @@ It is now in the queue for this repository"
             Err(e) => Err(GithubClientError::RequestError(e)),
         }
     }
+
+    pub(crate) async fn merge_pull(
+        &self,
+        owner: &str,
+        repo: &str,
+        pull_number: u64,
+    ) -> Result<(), GithubClientError> {
+        let route = format!("{GITHUB_API_ROOT}/repos/{owner}/{repo}/pulls/{pull_number}/merge");
+        match self.post(route, <Option<&()>>::None, None).await {
+            Ok(r) => match r.status() {
+                StatusCode::OK => Ok(()),
+                _ => Err(GithubClientError::GithubError(r)),
+            },
+            Err(e) => Err(GithubClientError::RequestError(e)),
+        }
+        // /repos/{owner}/{repo}/pulls/{pull_number}/merge
+    }
 }
 
 pub(crate) async fn create_issue_comment(

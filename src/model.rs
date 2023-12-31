@@ -152,11 +152,13 @@ impl From<&Row<'_>> for Test {
 
 const MERGE_STATUS_WAITING: i64 = 0;
 const MERGE_STATUS_STARTED: i64 = 1;
+const MERGE_STATUS_FAILED: i64 = 2;
 
 int_enum_sql! {
     MergeStatus {
         Waiting => MERGE_STATUS_WAITING,
-        Started => MERGE_STATUS_STARTED
+        Started => MERGE_STATUS_STARTED,
+        Failed => MERGE_STATUS_FAILED
     }
 }
 #[allow(dead_code)]
