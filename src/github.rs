@@ -524,31 +524,41 @@ impl<'a> GithubClient<'a> {
     ) -> Result<(), GithubClientError> {
         let route = format!("{GITHUB_API_ROOT}/repos/{owner}/{repo}/pulls/{pull_number}/reviews");
 
-        #[derive(Serialize)]
+        #[derive(Debug, Serialize)]
         struct PostReview<'a> {
             commit_id: &'a str,
             body: String,
             event: &'a str,
-            comments: &'a [&'a str],
+            comments: &'a [()],
         }
 
-        match self
-            .post(
-                route,
-                Some(&PostReview {
-                    commit_id,
-                    body: if let Some(obo) = on_behalf_of {
-                        format!("The yad integration for this repository approved these changes automatically on behalf of @{obo}")
-                    } else {
-                        "".into()
-                    },
-                    event: "APPROVED",
-                    comments: &[],
-                }),
-                None,
-            )
-            .await
-        {
+        let message = match on_behalf_of {
+            Some(obo) => {
+                format!(
+                    r"
+:pushpin: Commit {commit_id} has been approved by `{obo}`
+
+It is now in the queue for this repository."
+                )
+            }
+            None => {
+                format!(
+                    r"
+:pushpin: Commit {commit_id} has been approved.
+
+It is now in the queue for this repository"
+                )
+            }
+        };
+
+        let body = PostReview {
+            commit_id,
+            body: message,
+            event: "APPROVE",
+            comments: &[],
+        };
+
+        match self.post(route, Some(&body), None).await {
             Ok(r) => match r.status() {
                 StatusCode::OK => Ok(()),
                 _ => Err(GithubClientError::GithubError(r)),
