@@ -125,11 +125,11 @@ pub(crate) async fn save_pull_to_db(
 
     const STATEMENT: &str = r#"
 insert into pull_requests (
-    id, repository, status, merge_commit_id, 
+    id, number, repository, status, merge_commit_id, 
     head_commit_id, head_ref, base_ref, assignee, 
     approved_by, priority, try_test, rollup, squash, delegate)
 values (
-    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14);"#;
+    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15);"#;
 
     client
         .conn(move |conn| {
@@ -137,6 +137,7 @@ values (
                 STATEMENT,
                 params![
                     pr.id,
+                    pr.number,
                     repo.full_name,
                     PullRequestStatus::Pending,
                     pr.merge_commit_sha,
