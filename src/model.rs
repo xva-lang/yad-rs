@@ -101,7 +101,7 @@ pub(crate) struct PullRequest {
     pub status: PullRequestStatus,
     merge_commit_id: Option<String>,
     pub head_commit_id: String,
-    head_ref: String,
+    pub head_ref: String,
     base_ref: String,
     assignee: Option<String>,
     approved_by: Option<String>,

@@ -150,6 +150,49 @@ impl<'a> GithubClient<'a> {
         self.reqwest.execute(request).await
     }
 
+    async fn put<U, T>(
+        &self,
+        route: U,
+        body: Option<&T>,
+        bearer_override: Option<&str>,
+    ) -> Result<reqwest::Response, reqwest::Error>
+    where
+        U: IntoUrl,
+        T: Serialize + ?Sized,
+    {
+        let bearer = format!(
+            "Bearer {}",
+            if let Some(bo) = bearer_override {
+                bo
+            } else {
+                self.access_token
+            }
+        );
+        let default_headers = &[
+            ("Authorization", bearer.as_str()),
+            ("Accept", GITHUB_ACCEPT_TYPE),
+            (
+                GITHUB_API_VERSION_HEADER_KEY,
+                GITHUB_API_VERSION_HEADER_VALUE,
+            ),
+        ];
+
+        let mut builder = self.reqwest.put(route);
+        for (k, v) in default_headers {
+            builder = builder.header(*k, *v)
+        }
+
+        let request = if let Some(b) = body {
+            builder
+                .body(serde_json::to_string(b).unwrap())
+                .build()
+                .unwrap()
+        } else {
+            builder.build().unwrap()
+        };
+        self.reqwest.execute(request).await
+    }
+
     async fn gh_app_post<U, T>(
         &mut self,
         route: U,
@@ -572,9 +615,21 @@ It is now in the queue for this repository"
         owner: &str,
         repo: &str,
         pull_number: u64,
+        head_ref: &str,
     ) -> Result<(), GithubClientError> {
         let route = format!("{GITHUB_API_ROOT}/repos/{owner}/{repo}/pulls/{pull_number}/merge");
-        match self.post(route, <Option<&()>>::None, None).await {
+
+        #[derive(Debug, Serialize)]
+        struct PostMerge {
+            commit_title: String,
+        }
+
+        let body = PostMerge {
+            commit_title: format!("Auto merge of #{pull_number} - {head_ref}"),
+        };
+
+        // {"commit_title":"Expand enum","commit_message":"Add a new value to the merge_method enum"}
+        match self.put(route, Some(&body), None).await {
             Ok(r) => match r.status() {
                 StatusCode::OK => Ok(()),
                 _ => Err(GithubClientError::GithubError(r)),

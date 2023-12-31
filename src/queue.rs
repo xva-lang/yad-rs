@@ -37,8 +37,8 @@ pub(crate) async fn queue_server() {
         if pull_requests.len() == 0 {
             // info(), config)
             println!("Nothing to do");
-          tokio::time::sleep(SLEEP_LENGTH).await;
-        //    continue;
+            tokio::time::sleep(SLEEP_LENGTH).await;
+            //    continue;
         }
 
         let test_queue = pull_requests
@@ -49,7 +49,7 @@ pub(crate) async fn queue_server() {
         if test_queue.len() == 0 {
             println!("No approved merges in queue");
             tokio::time::sleep(SLEEP_LENGTH).await;
-          //  continue;
+            //  continue;
         }
 
         for test in test_queue {
@@ -82,7 +82,9 @@ pub(crate) async fn queue_server() {
                 }
             }
         }
-        handle_merge_queue(&pool, &gh_client, &config).await.unwrap();
+        handle_merge_queue(&pool, &gh_client, &config)
+            .await
+            .unwrap();
         tokio::time::sleep(SLEEP_LENGTH).await;
     }
 }
@@ -116,6 +118,7 @@ where
         let (owner, repo) = (parts.get(0).unwrap(), parts.get(1).unwrap());
         let pr_id = pr.id;
         let pull_number = pr.number;
+        let head_ref = pr.head_ref;
 
         info(
             format!("Starting merge for pull request #{pull_number}"),
@@ -131,7 +134,10 @@ where
         .await
         .unwrap();
 
-        if let Err(e) = client.merge_pull(owner, repo, pr.number as u64).await {
+        if let Err(e) = client
+            .merge_pull(owner, repo, pr.number as u64, &head_ref)
+            .await
+        {
             error(format!("Failed to merge pull request. {e}"), Some(&config));
             pool.conn(move |conn| {
                 conn.execute(
