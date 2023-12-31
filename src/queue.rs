@@ -119,6 +119,7 @@ where
         let pr_id = pr.id;
         let pull_number = pr.number;
         let head_ref = pr.head_ref;
+        let approver = pr.approved_by.unwrap();
 
         info(
             format!("Starting merge for pull request #{pull_number}"),
@@ -135,7 +136,7 @@ where
         .unwrap();
 
         if let Err(e) = client
-            .merge_pull(owner, repo, pr.number as u64, &head_ref)
+            .merge_pull(owner, repo, pr.number as u64, &head_ref, &approver)
             .await
         {
             error(format!("Failed to merge pull request. {e}"), Some(&config));

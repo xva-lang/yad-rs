@@ -104,7 +104,7 @@ pub(crate) struct PullRequest {
     pub head_ref: String,
     base_ref: String,
     assignee: Option<String>,
-    approved_by: Option<String>,
+    pub approved_by: Option<String>,
     priority: u64,
     try_test: bool,
     rollup: bool,
