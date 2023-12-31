@@ -255,6 +255,68 @@ impl<'a> GithubClient<'a> {
         inner().await
     }
 
+    async fn gh_app_put<U, T>(
+        &mut self,
+        route: U,
+        body: Option<&T>,
+        owner: &str,
+        repo: &str,
+    ) -> Result<reqwest::Response, GithubClientError>
+    where
+        U: IntoUrl,
+        T: Serialize + ?Sized,
+    {
+        if self.gh_app_token == "" {
+            self.authorise_gh_app(owner, repo).await.unwrap();
+        }
+
+        let inner = || async {
+            let bearer = format!("Bearer {}", &self.gh_app_token);
+
+            let default_headers = &[
+                ("Authorization", bearer.as_str()),
+                ("Accept", GITHUB_ACCEPT_TYPE),
+                (
+                    GITHUB_API_VERSION_HEADER_KEY,
+                    GITHUB_API_VERSION_HEADER_VALUE,
+                ),
+            ];
+
+            let mut builder = self.reqwest.put(route);
+            for (k, v) in default_headers {
+                builder = builder.header(*k, *v)
+            }
+
+            let request = if let Some(b) = body {
+                builder
+                    .body(serde_json::to_string(b).unwrap())
+                    .build()
+                    .unwrap()
+            } else {
+                builder.build().unwrap()
+            };
+
+            let cloned_request = request.try_clone().unwrap();
+            match self.reqwest.execute(request).await {
+                Ok(r) => match r.status() {
+                    StatusCode::FORBIDDEN => {
+                        if let Err(e) = self.authorise_gh_app(owner, repo).await {
+                            return Err(e);
+                        }
+                        match self.reqwest.execute(cloned_request).await {
+                            Ok(r) => Ok(r),
+                            Err(e) => return Err(GithubClientError::RequestError(e)),
+                        }
+                    }
+                    _ => Ok(r),
+                },
+                Err(e) => return Err(GithubClientError::RequestError(e)),
+            }
+        };
+
+        inner().await
+    }
+
     async fn delete<U, T>(
         &self,
         route: U,
@@ -616,6 +678,7 @@ It is now in the queue for this repository"
         repo: &str,
         pull_number: u64,
         head_ref: &str,
+        approver: &str,
     ) -> Result<(), GithubClientError> {
         let route = format!("{GITHUB_API_ROOT}/repos/{owner}/{repo}/pulls/{pull_number}/merge");
 
@@ -625,10 +688,9 @@ It is now in the queue for this repository"
         }
 
         let body = PostMerge {
-            commit_title: format!("Auto merge of #{pull_number} - {head_ref}"),
+            commit_title: format!("Auto merge of #{pull_number} - {head_ref}, r={approver}"),
         };
 
-        // {"commit_title":"Expand enum","commit_message":"Add a new value to the merge_method enum"}
         match self.put(route, Some(&body), None).await {
             Ok(r) => match r.status() {
                 StatusCode::OK => Ok(()),
