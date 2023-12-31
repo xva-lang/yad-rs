@@ -9,6 +9,7 @@ use crate::{
     },
     logging::{error, info},
     model::PullRequestStatus,
+    queue::queue_merge,
     routes::IssueCommentPayload,
 };
 
@@ -216,7 +217,6 @@ where id = ?3"#;
 }
 
 pub(crate) async fn approve_pull(ic: &IssueCommentPayload) {
-    use crate::github::GITHUB_API_ROOT;
     let owner = &ic.repository.owner.as_ref().unwrap().login;
     let repo = &ic.repository.name;
     let commenter = &ic.issue.user.login;
@@ -225,12 +225,12 @@ pub(crate) async fn approve_pull(ic: &IssueCommentPayload) {
     let config = get_config();
 
     let client = GithubClient::new(config.access_token());
-    let (pull_number, commit_id) = match client
+    let (pull_number, commit_id, pull_id) = match client
         .get_pull_request_from_issue_number(owner, repo, issue_number)
         .await
     {
         Ok(inner) => match inner {
-            Some(pr) => (pr.number, pr.head.sha),
+            Some(pr) => (pr.number, pr.head.sha, pr.id),
             None => {
                 error(
                     format!("No pull request for issue #{issue_number}"),
@@ -248,14 +248,30 @@ pub(crate) async fn approve_pull(ic: &IssueCommentPayload) {
         }
     };
 
+    match queue_merge(pull_id).await {
+        Ok(_) => {}
+        Err(e) => {
+            error(
+                format!("Failed to add approved review to pull request #{pull_number}. {e}"),
+                Some(&config),
+            );
+        }
+    }
+
+    let body = format!(
+        r"
+:pushpin: Commit {commit_id} has been approved by `{commenter}`
+
+It is now in the queue for this repository."
+    );
     match client
-        .add_approved_review(owner, repo, pull_number, &commit_id, Some(commenter))
+        .create_issue_comment(owner, repo, issue_number, &body)
         .await
     {
         Ok(_) => {}
         Err(e) => {
             error(
-                format!("Failed to add approved review to pull request #{pull_number}. {e}"),
+                format!("Failed to create issue comment for approved pull. {e}"),
                 Some(&config),
             );
         }

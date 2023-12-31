@@ -149,3 +149,27 @@ impl From<&Row<'_>> for Test {
         }
     }
 }
+
+const MERGE_STATUS_WAITING: i64 = 0;
+const MERGE_STATUS_STARTED: i64 = 1;
+
+int_enum_sql! {
+    MergeStatus {
+        Waiting => MERGE_STATUS_WAITING,
+        Started => MERGE_STATUS_STARTED
+    }
+}
+#[allow(dead_code)]
+pub(crate) struct Merge {
+    pull_request_id: u64,
+    status: MergeStatus,
+}
+
+impl From<&Row<'_>> for Merge {
+    fn from(value: &Row<'_>) -> Self {
+        Self {
+            pull_request_id: value.get(0).unwrap(),
+            status: value.get(1).unwrap(),
+        }
+    }
+}

@@ -6,7 +6,7 @@ use crate::{
     config::{get_config, Config},
     github::GithubClient,
     logging::error,
-    model::{PullRequest, PullRequestStatus},
+    model::{MergeStatus, PullRequest, PullRequestStatus},
 };
 
 pub(crate) async fn queue_server() {
@@ -108,4 +108,21 @@ where
             .collect::<Vec<PullRequest>>())
     })
     .await
+}
+
+pub(crate) async fn queue_merge(pull_request_id: u64) -> Result<(), async_sqlite::Error> {
+    let sql = "insert into merges (pull_request_id, status) values (?1, ?2)";
+    let config = get_config();
+    let pool = PoolBuilder::new()
+        .path(config.database_path())
+        .open()
+        .await?;
+
+    match pool
+        .conn(move |conn| conn.execute(sql, params![pull_request_id, MergeStatus::Waiting]))
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
 }

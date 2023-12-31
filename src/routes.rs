@@ -24,7 +24,7 @@ use crate::{
 pub(crate) enum EventPayload {
     IssueComment(IssueCommentPayload),
     PullRequest(PullRequestPayload),
-    PullRequestReview(PullRequestReviewPayload),
+    // PullRequestReview(PullRequestReviewPayload),
 }
 
 #[derive(Debug, Deserialize)]
@@ -99,9 +99,9 @@ pub(crate) async fn post_github(
         GITHUB_EVENT_PULL_REQUEST => {
             EventPayload::PullRequest(serde_json::from_str::<PullRequestPayload>(&body).unwrap())
         }
-        GITHUB_EVENT_PULL_REQUEST_REVIEW => EventPayload::PullRequestReview(
-            serde_json::from_str::<PullRequestReviewPayload>(&body).unwrap(),
-        ),
+        // GITHUB_EVENT_PULL_REQUEST_REVIEW => EventPayload::PullRequestReview(
+        //     serde_json::from_str::<PullRequestReviewPayload>(&body).unwrap(),
+        // ),
         _ => {
             error(format!("Unknown event {event_type:#?}"), Some(&config));
             return;
@@ -144,15 +144,6 @@ pub(crate) async fn post_github(
                         .unwrap()
                 }
             }
-        },
-
-        EventPayload::PullRequestReview(prr) => match prr.review.state {
-            PullRequestReviewState::Approved => {
-                set_pull_request_approved(prr.pull_request.id, prr.review.user.login)
-                    .await
-                    .unwrap()
-            }
-            _ => {}
         },
     }
 }
