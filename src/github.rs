@@ -1,12 +1,17 @@
 pub(crate) mod model;
 
-use crate::config::{get_config, load_config};
+use crate::{
+    config::{get_config, load_config},
+    github::model::pulls::PullRequestReviewState,
+};
 use chrono::{DateTime, Duration, Local};
 use lazy_static::lazy_static;
 use model::User;
 use reqwest::{IntoUrl, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, error::Error};
+
+use self::model::{pulls::PullRequest, Issue};
 
 #[derive(Debug)]
 pub(crate) enum GithubClientError {
@@ -49,7 +54,7 @@ lazy_static! {
         .unwrap();
 }
 
-const GITHUB_API_ROOT: &str = "https://api.github.com";
+pub(crate) const GITHUB_API_ROOT: &str = "https://api.github.com";
 const GITHUB_ACCEPT_TYPE: &str = "application/vnd.github+json";
 const GITHUB_API_VERSION_HEADER_KEY: &str = "X-GitHub-Api-Version";
 const GITHUB_API_VERSION_HEADER_VALUE: &str = "2022-11-28";
@@ -480,6 +485,76 @@ impl<'a> GithubClient<'a> {
                 .token;
 
         Ok(())
+    }
+
+    pub(crate) async fn get_pull_request_from_issue_number(
+        &self,
+        owner: &str,
+        repo: &str,
+        issue_number: u64,
+    ) -> Result<Option<PullRequest>, GithubClientError> {
+        let route = format!("{GITHUB_API_ROOT}/repos/{owner}/{repo}/issues/{issue_number}");
+        let response = match self.get(route, None).await {
+            Ok(r) => r,
+            Err(e) => return Err(GithubClientError::RequestError(e)),
+        };
+
+        match serde_json::from_str::<Issue>(&response.text().await.unwrap())
+            .unwrap()
+            .pull_request
+        {
+            Some(pr_url) => match self.get(pr_url.url, None).await {
+                Ok(r) => {
+                    let pr = serde_json::from_str::<PullRequest>(&r.text().await.unwrap()).unwrap();
+                    Ok(Some(pr))
+                }
+                Err(e) => return Err(GithubClientError::RequestError(e)),
+            },
+            None => Ok(None),
+        }
+    }
+
+    pub(crate) async fn add_approved_review(
+        &self,
+        owner: &str,
+        repo: &str,
+        pull_number: u64,
+        commit_id: &str,
+        on_behalf_of: Option<&str>,
+    ) -> Result<(), GithubClientError> {
+        let route = format!("{GITHUB_API_ROOT}/repos/{owner}/{repo}/pulls/{pull_number}/reviews");
+
+        #[derive(Serialize)]
+        struct PostReview<'a> {
+            commit_id: &'a str,
+            body: String,
+            event: &'a str,
+            comments: &'a [&'a str],
+        }
+
+        match self
+            .post(
+                route,
+                Some(&PostReview {
+                    commit_id,
+                    body: if let Some(obo) = on_behalf_of {
+                        format!("The yad integration for this repository approved these changes automatically on behalf of @{obo}")
+                    } else {
+                        "".into()
+                    },
+                    event: "APPROVED",
+                    comments: &[],
+                }),
+                None,
+            )
+            .await
+        {
+            Ok(r) => match r.status() {
+                StatusCode::OK => Ok(()),
+                _ => Err(GithubClientError::GithubError(r)),
+            },
+            Err(e) => Err(GithubClientError::RequestError(e)),
+        }
     }
 }
 

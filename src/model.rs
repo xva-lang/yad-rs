@@ -65,12 +65,16 @@ macro_rules! int_enum_sql {
 const PULL_REQUEST_STATUS_PENDING: i64 = 0;
 const PULL_REQUEST_STATUS_APPROVED: i64 = 1;
 const PULL_REQUEST_STATUS_REJECTED: i64 = 2;
+const PULL_REQUEST_STATUS_MERGED: i64 = 3;
+const PULL_REQUEST_STATUS_CLOSED: i64 = 4;
 
 int_enum_sql! {
     PullRequestStatus {
         Pending => PULL_REQUEST_STATUS_PENDING,
         Approved => PULL_REQUEST_STATUS_APPROVED,
-        Rejected => PULL_REQUEST_STATUS_REJECTED
+        Rejected => PULL_REQUEST_STATUS_REJECTED,
+        Merged => PULL_REQUEST_STATUS_MERGED,
+        Closed => PULL_REQUEST_STATUS_CLOSED
     }
 }
 
@@ -92,6 +96,7 @@ int_enum_sql! {
 #[derive(Debug)]
 pub(crate) struct PullRequest {
     pub id: u64,
+    pub number: i64,
     pub repository: String,
     pub status: PullRequestStatus,
     merge_commit_id: Option<String>,
@@ -111,19 +116,20 @@ impl From<&Row<'_>> for PullRequest {
     fn from(value: &Row<'_>) -> Self {
         Self {
             id: value.get(0).unwrap(),
-            repository: value.get(1).unwrap(),
-            status: value.get(2).unwrap(),
-            merge_commit_id: value.get(3).unwrap(),
-            head_commit_id: value.get(4).unwrap(),
-            head_ref: value.get(5).unwrap(),
-            base_ref: value.get(6).unwrap(),
-            assignee: value.get(7).unwrap(),
-            approved_by: value.get(8).unwrap(),
-            priority: value.get(9).unwrap(),
-            try_test: value.get(10).unwrap(),
-            rollup: value.get(11).unwrap(),
-            squash: value.get(12).unwrap(),
-            delegate: value.get(13).unwrap(),
+            number: value.get(1).unwrap(),
+            repository: value.get(2).unwrap(),
+            status: value.get(3).unwrap(),
+            merge_commit_id: value.get(4).unwrap(),
+            head_commit_id: value.get(5).unwrap(),
+            head_ref: value.get(6).unwrap(),
+            base_ref: value.get(7).unwrap(),
+            assignee: value.get(8).unwrap(),
+            approved_by: value.get(9).unwrap(),
+            priority: value.get(10).unwrap(),
+            try_test: value.get(11).unwrap(),
+            rollup: value.get(12).unwrap(),
+            squash: value.get(13).unwrap(),
+            delegate: value.get(14).unwrap(),
         }
     }
 }

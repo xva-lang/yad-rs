@@ -157,3 +157,107 @@ values (
         })
         .await
 }
+
+pub(crate) async fn set_pull_request_status(
+    pr_id: u64,
+    status: PullRequestStatus,
+) -> Result<(), async_sqlite::Error> {
+    let config = get_config();
+    let client = async_sqlite::ClientBuilder::new()
+        .path(config.database_path())
+        .open()
+        .await
+        .unwrap();
+
+    const STATEMENT: &str = r#"
+update pull_requests 
+set status = ?1
+where id = ?2"#;
+
+    client
+        .conn(
+            move |conn| match conn.execute(STATEMENT, params![status, pr_id]) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
+        )
+        .await
+}
+
+pub(crate) async fn set_pull_request_approved(
+    pr_id: u64,
+    approved_by: String,
+) -> Result<(), async_sqlite::Error> {
+    let config = get_config();
+    let client = async_sqlite::ClientBuilder::new()
+        .path(config.database_path())
+        .open()
+        .await
+        .unwrap();
+
+    const STATEMENT: &str = r#"
+update pull_requests 
+set 
+    status = ?1,
+    approved_by = ?2
+where id = ?3"#;
+
+    client
+        .conn(move |conn| {
+            match conn.execute(
+                STATEMENT,
+                params![PullRequestStatus::Approved, approved_by, pr_id],
+            ) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            }
+        })
+        .await
+}
+
+pub(crate) async fn approve_pull(ic: &IssueCommentPayload) {
+    use crate::github::GITHUB_API_ROOT;
+    let owner = &ic.repository.owner.as_ref().unwrap().login;
+    let repo = &ic.repository.name;
+    let commenter = &ic.issue.user.login;
+    let issue_number = ic.issue.number;
+
+    let config = get_config();
+
+    let client = GithubClient::new(config.access_token());
+    let (pull_number, commit_id) = match client
+        .get_pull_request_from_issue_number(owner, repo, issue_number)
+        .await
+    {
+        Ok(inner) => match inner {
+            Some(pr) => (pr.number, pr.head.sha),
+            None => {
+                error(
+                    format!("No pull request for issue #{issue_number}"),
+                    Some(&config),
+                );
+                return;
+            }
+        },
+        Err(e) => {
+            error(
+                format!("Failed to retrieve pull request for issue #{issue_number}. {e}"),
+                Some(&config),
+            );
+            return;
+        }
+    };
+
+    match client
+        .add_approved_review(owner, repo, pull_number, &commit_id, Some(commenter))
+        .await
+    {
+        Ok(_) => {}
+        Err(e) => {
+            error(
+                format!("Failed to add approved review to pull request #{pull_number}. {e}"),
+                Some(&config),
+            );
+        }
+    }
+}

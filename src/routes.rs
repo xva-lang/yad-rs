@@ -3,13 +3,19 @@ use axum::{body::Body, debug_handler, extract::State, http::HeaderMap, Json};
 use serde::Deserialize;
 
 use crate::{
-    actions::{ping, remove_assignee, save_pull_to_db, set_assignee},
+    actions::{
+        approve_pull, ping, remove_assignee, save_pull_to_db, set_assignee,
+        set_pull_request_approved, set_pull_request_status,
+    },
     command::{parse_command, Command},
     config::get_config,
     github::model::{
-        pulls::PullRequest, repo::Repository, Comment, Issue, IssueCommentEventAction,
+        pulls::{PullRequest, PullRequestReview, PullRequestReviewState},
+        repo::Repository,
+        Comment, Issue, IssueCommentEventAction,
     },
     logging::error,
+    model::PullRequestStatus,
     AppState,
 };
 
@@ -18,6 +24,7 @@ use crate::{
 pub(crate) enum EventPayload {
     IssueComment(IssueCommentPayload),
     PullRequest(PullRequestPayload),
+    PullRequestReview(PullRequestReviewPayload),
 }
 
 #[derive(Debug, Deserialize)]
@@ -25,6 +32,9 @@ pub(crate) enum EventPayload {
 pub(crate) enum PullRequestEventAction {
     #[serde(rename = "opened")]
     Opened,
+
+    #[serde(rename = "closed")]
+    Closed,
 }
 
 #[allow(dead_code)]
@@ -46,9 +56,26 @@ pub(crate) struct IssueCommentPayload {
     pub repository: Repository,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum PullRequestReviewEventAction {
+    Dismissed,
+    Edited,
+    Submitted,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+pub(crate) struct PullRequestReviewPayload {
+    pub action: PullRequestReviewEventAction,
+    pub review: PullRequestReview,
+    pub pull_request: PullRequest,
+}
+
 const GITHUB_EVENT_KEY: &str = "X-GitHub-Event";
 const GITHUB_EVENT_ISSUE_COMMENT: &str = "issue_comment";
 const GITHUB_EVENT_PULL_REQUEST: &str = "pull_request";
+const GITHUB_EVENT_PULL_REQUEST_REVIEW: &str = "pull_request_review";
 
 #[debug_handler]
 pub(crate) async fn post_github(
@@ -72,6 +99,9 @@ pub(crate) async fn post_github(
         GITHUB_EVENT_PULL_REQUEST => {
             EventPayload::PullRequest(serde_json::from_str::<PullRequestPayload>(&body).unwrap())
         }
+        GITHUB_EVENT_PULL_REQUEST_REVIEW => EventPayload::PullRequestReview(
+            serde_json::from_str::<PullRequestReviewPayload>(&body).unwrap(),
+        ),
         _ => {
             error(format!("Unknown event {event_type:#?}"), Some(&config));
             return;
@@ -85,7 +115,7 @@ pub(crate) async fn post_github(
 
                 for command in commands {
                     match command {
-                        // Command::Approve => crate::actions::approve_pull(&ic).await,
+                        Command::Approve => approve_pull(&ic).await,
                         Command::Ping => ping(&ic).await,
                         Command::Assign { user } => set_assignee(&ic, user).await,
                         Command::RemoveAssignment => remove_assignee(&ic).await,
@@ -94,8 +124,35 @@ pub(crate) async fn post_github(
                 }
             }
         }
-        EventPayload::PullRequest(p) => {
-            save_pull_to_db(p.pull_request, p.repository).await.unwrap()
-        }
+        EventPayload::PullRequest(PullRequestPayload {
+            action,
+            number,
+            pull_request,
+            repository,
+        }) => match action {
+            PullRequestEventAction::Opened => {
+                save_pull_to_db(pull_request, repository).await.unwrap()
+            }
+            PullRequestEventAction::Closed => {
+                if let Some(_) = pull_request.merged_at {
+                    set_pull_request_status(pull_request.id, PullRequestStatus::Merged)
+                        .await
+                        .unwrap()
+                } else {
+                    set_pull_request_status(pull_request.id, PullRequestStatus::Closed)
+                        .await
+                        .unwrap()
+                }
+            }
+        },
+
+        EventPayload::PullRequestReview(prr) => match prr.review.state {
+            PullRequestReviewState::Approved => {
+                set_pull_request_approved(prr.pull_request.id, prr.review.user.login)
+                    .await
+                    .unwrap()
+            }
+            _ => {}
+        },
     }
 }
