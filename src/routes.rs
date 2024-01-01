@@ -1,6 +1,7 @@
 use axum::{body::Body, debug_handler, extract::State, http::HeaderMap, Json};
 
 use serde::Deserialize;
+use url::Url;
 
 use crate::{
     actions::{
@@ -10,6 +11,7 @@ use crate::{
     command::{parse_command, Command},
     config::get_config,
     github::model::{
+        checks::CheckSuite,
         pulls::{PullRequest, PullRequestReview, PullRequestReviewState},
         repo::Repository,
         Comment, Issue, IssueCommentEventAction,
@@ -24,7 +26,8 @@ use crate::{
 pub(crate) enum EventPayload {
     IssueComment(IssueCommentPayload),
     PullRequest(PullRequestPayload),
-    // PullRequestReview(PullRequestReviewPayload),
+    // CheckSuite(CheckSuitePayload), // PullRequestReview(PullRequestReviewPayload),
+    CheckRun(CheckRunPayload),
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,10 +75,42 @@ pub(crate) struct PullRequestReviewPayload {
     pub pull_request: PullRequest,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum CheckSuiteEventAction {
+    Completed,
+    Requested,
+    Rerequested,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct CheckSuitePayload {
+    pub action: CheckSuiteEventAction,
+    pub check_suite: CheckSuite,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum CheckRunEventAction {
+    Created,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct CheckRunPayload {
+    action: CheckRunEventAction,
+    id: u64,
+    name: String,
+    head_sha: String,
+    url: Url,
+    check_suite: CheckSuite,
+}
+
 const GITHUB_EVENT_KEY: &str = "X-GitHub-Event";
 const GITHUB_EVENT_ISSUE_COMMENT: &str = "issue_comment";
 const GITHUB_EVENT_PULL_REQUEST: &str = "pull_request";
 const GITHUB_EVENT_PULL_REQUEST_REVIEW: &str = "pull_request_review";
+const GITHUB_EVENT_CHECK_SUITE: &str = "check_suite";
+const GITHUB_EVENT_CHECK_RUN: &str = "check_run";
 
 #[debug_handler]
 pub(crate) async fn post_github(
@@ -99,6 +134,7 @@ pub(crate) async fn post_github(
         GITHUB_EVENT_PULL_REQUEST => {
             EventPayload::PullRequest(serde_json::from_str::<PullRequestPayload>(&body).unwrap())
         }
+        GITHUB_EVENT_CHECK_RUN => EventPayload::CheckRun(serde_json::from_str(&body).unwrap()),
         // GITHUB_EVENT_PULL_REQUEST_REVIEW => EventPayload::PullRequestReview(
         //     serde_json::from_str::<PullRequestReviewPayload>(&body).unwrap(),
         // ),
@@ -144,6 +180,17 @@ pub(crate) async fn post_github(
                         .unwrap()
                 }
             }
+        },
+
+        EventPayload::CheckRun(CheckRunPayload {
+            action,
+            id,
+            name,
+            head_sha,
+            url,
+            check_suite,
+        }) => match action {
+            CheckRunEventAction::Created => {}
         },
     }
 }

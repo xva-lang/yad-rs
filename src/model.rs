@@ -175,3 +175,35 @@ impl From<&Row<'_>> for Merge {
         }
     }
 }
+
+const CHECK_SUITE_STATUS_REQUESTED: i64 = 0;
+const CHECK_SUITE_STATUS_PENDING: i64 = 1;
+const CHECK_SUITE_STATUS_QUEUED: i64 = 2;
+const CHECK_SUITE_STATUS_IN_PROGRESS: i64 = 3;
+const CHECK_SUITE_STATUS_COMPLETED: i64 = 4;
+
+int_enum_sql! {
+    CheckSuiteStatus {
+        Requested => CHECK_SUITE_STATUS_REQUESTED,
+        Pending => CHECK_SUITE_STATUS_PENDING,
+        Queued => CHECK_SUITE_STATUS_QUEUED,
+        InProgress => CHECK_SUITE_STATUS_IN_PROGRESS,
+        Completed => CHECK_SUITE_STATUS_COMPLETED
+    }
+}
+
+pub(crate) struct CheckSuite {
+    id: u64,
+    pull_request_id: u64,
+    status: CheckSuiteStatus,
+}
+
+impl From<&Row<'_>> for CheckSuite {
+    fn from(value: &Row<'_>) -> Self {
+        Self {
+            id: value.get(0).unwrap(),
+            pull_request_id: value.get(1).unwrap(),
+            status: value.get(2).unwrap(),
+        }
+    }
+}

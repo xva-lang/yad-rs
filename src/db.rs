@@ -63,6 +63,18 @@ create table tests
         &conn,
     )
     .await?;
+
+    create_if_not_exists(
+        "check_suites",
+        r"
+create table check_suites (
+    id int constraint pk_check_suites primary key,
+    pull_request_id int references pull_requests on delete cascade
+);",
+        &conn,
+    )
+    .await?;
+
     Ok(())
 }
 

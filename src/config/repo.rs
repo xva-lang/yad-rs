@@ -7,4 +7,7 @@ pub(crate) struct RepoConfig {
     owner: String,
     secret: String,
     tests: Option<TestsConfig>,
+
+    /// Check names on the Github workflow runs to wait for before merging
+    checks: Option<Vec<String>>,
 }
