@@ -6,6 +6,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+
 use config::get_config;
 use github::{model::User, GithubClient};
 use logging::{error, info};

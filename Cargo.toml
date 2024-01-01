@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 async-sqlite = "0.2.0"
 axum = { version = "0.7.2", features = ["macros"] }
+axum-server = { version = "0.6.0", features = ["tls-rustls"] }
 chrono = { version = "0.4.31", features = ["serde"] }
 jsonwebtoken = "9.2.0"
 lazy_static = "1.4.0"

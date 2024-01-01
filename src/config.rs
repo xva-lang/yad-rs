@@ -1,3 +1,5 @@
+use crate::CONFIG;
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     error::Error,
@@ -7,9 +9,7 @@ use std::{
     sync::Arc,
 };
 
-use serde::{de::IntoDeserializer, Deserialize};
-
-use crate::CONFIG;
+const DEFAULT_CONFIG_FILE_NAME: &str = "yad.toml";
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct Config {
@@ -74,10 +74,6 @@ impl Config {
         }
     }
 
-    pub(crate) fn get_repo(&self, name: &str) -> Option<&RepoConfig> {
-        self.repos.get(name)
-    }
-
     pub(crate) fn access_token(&self) -> &String {
         &self.github.access_token
     }
@@ -96,7 +92,6 @@ impl Config {
         }
     }
 }
-const DEFAULT_CONFIG_FILE_NAME: &str = "yad.toml";
 
 pub(crate) fn load_config(config_file: Option<&str>) -> Result<Config, Box<dyn Error>> {
     let file_name = if let Some(cf) = config_file {
