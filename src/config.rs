@@ -47,7 +47,7 @@ pub(crate) struct ServerConfig {
 
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 8000;
-const DEFAULT_DATABASE_PATH: &str = "./yad.db";
+const DEFAULT_DATABASE_PATH: &str = "yad.db";
 
 impl ServerConfig {
     pub(crate) fn get_addr(&self) -> SocketAddrV4 {

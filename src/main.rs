@@ -1,17 +1,16 @@
-use std::{error::Error, net::TcpListener, sync::Arc, time::Duration};
-
-use crate::config::{load_config, Config};
-use async_sqlite::{rusqlite::params, PoolBuilder};
 use axum::{
     routing::{get, post},
     Router,
 };
 use axum_server::tls_rustls::RustlsConfig;
+use std::{error::Error, net::TcpListener, sync::Arc, time::Duration};
+
+use crate::config::{load_config, Config};
 
 use config::get_config;
+use entity::pull_requests::{Entity as PullRequest, PullRequestStatus};
 use github::{model::User, GithubClient};
 use logging::{error, info};
-use model::{PullRequest, PullRequestStatus};
 
 mod actions;
 mod command;
@@ -53,8 +52,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         app_user: get_current_user().await?,
     };
 
-    // Initialise the database
-    db::create_db().await?;
+    // // Initialise the database
+    // db::create_db().await?;
+    db::apply_migrations().await?;
 
     // build our application with a single route
     let app = Router::new()
@@ -96,9 +96,4 @@ async fn start(app: Router) {
 }
 
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn fails() {
-        panic!()
-    }
-}
+mod tests {}

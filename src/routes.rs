@@ -17,9 +17,10 @@ use crate::{
         Comment, Issue, IssueCommentEventAction,
     },
     logging::error,
-    model::PullRequestStatus,
     AppState,
 };
+
+use entity::pull_requests::{Entity, PullRequestStatus};
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]

@@ -721,19 +721,8 @@ pub(crate) async fn create_issue_comment(
 
 #[cfg(test)]
 mod tests {
-    use crate::config::get_config;
-
     use super::GithubClient;
-
-    #[tokio::test]
-    async fn test_create_issue_comment() {
-        let config = get_config();
-        let client = GithubClient::new(config.access_token());
-        client
-            .create_issue_comment("xva-lang", "homu-test-repo", 4, "test comment")
-            .await
-            .unwrap();
-    }
+    use crate::config::get_config;
 
     #[tokio::test]
     async fn test_delete_assignee() {

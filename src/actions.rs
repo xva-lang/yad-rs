@@ -1,17 +1,19 @@
-use async_sqlite::rusqlite::{params, types::Value};
+use sea_orm::{ActiveModelTrait, DbErr, EntityTrait, Set};
 
 use crate::{
     config::get_config,
+    db::get_db,
     github::{
         create_issue_comment,
         model::{pulls::PullRequest, repo::Repository},
         GithubClient,
     },
     logging::{error, info},
-    model::PullRequestStatus,
     queue::enqueue_merge,
     routes::IssueCommentPayload,
 };
+
+use entity::pull_requests::PullRequestStatus;
 
 const DEFAULT_PING_MESSAGE: &str = "Hi @{{COMMENTER}}! Yes, I'm still alive!";
 const PING_MESSAGE_COMMENTER_PATTERN: &str = "{{COMMENTER}}";
@@ -112,109 +114,93 @@ pub(crate) async fn remove_assignee(ic: &IssueCommentPayload) {
     }
 }
 
-pub(crate) async fn save_pull_to_db(
-    pr: PullRequest,
-    repo: Repository,
-) -> Result<(), async_sqlite::Error> {
-    let config = get_config();
-    let client = async_sqlite::ClientBuilder::new()
-        .path(config.database_path())
-        .open()
-        .await
-        .unwrap();
+pub(crate) async fn save_pull_to_db(pr: PullRequest, repo: Repository) -> Result<(), DbErr> {
+    let row = entity::pull_requests::ActiveModel {
+        id: Set(pr.id),
+        number: Set(pr.number),
+        repository: Set(repo.full_name),
+        status: Set(PullRequestStatus::Pending),
+        merge_commit_id: Set(pr.merge_commit_sha),
+        head_commit_id: Set(pr.head.sha),
+        head_ref: Set(pr.head.label.unwrap()),
+        base_ref: Set(pr.base.label.unwrap()),
+        assignee: Set(pr.assignee.map_or(None, |x| Some(x.login))),
+        approved_by: Set(None),
+        priority: Set(0),
+        try_test: Set(false),
+        rollup: Set(0),
+        squash: Set(false),
+        delegate: Set(None),
+    };
 
-    const STATEMENT: &str = r#"
-insert into pull_requests (
-    id, number, repository, status, merge_commit_id, 
-    head_commit_id, head_ref, base_ref, assignee, 
-    approved_by, priority, try_test, rollup, squash, delegate)
-values (
-    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15);"#;
-
-    client
-        .conn(move |conn| {
-            match conn.execute(
-                STATEMENT,
-                params![
-                    pr.id,
-                    pr.number,
-                    repo.full_name,
-                    PullRequestStatus::Pending,
-                    pr.merge_commit_sha,
-                    pr.head.sha,
-                    pr.head.label,
-                    pr.base.label,
-                    pr.assignee.map_or(Value::Null, |x| Value::Text(x.login)),
-                    Value::Null,
-                    0,
-                    false,
-                    false,
-                    false,
-                    Value::Null
-                ],
-            ) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            }
-        })
-        .await
+    row.insert(&get_db().await?).await?;
+    Ok(())
 }
 
 pub(crate) async fn set_pull_request_status(
     pr_id: u64,
     status: PullRequestStatus,
-) -> Result<(), async_sqlite::Error> {
-    let config = get_config();
-    let client = async_sqlite::ClientBuilder::new()
-        .path(config.database_path())
-        .open()
-        .await
-        .unwrap();
+) -> Result<(), DbErr> {
+    use entity::pull_requests::Entity as PullRequests;
+    let db = get_db().await?;
+    //     let pear: Option<fruit::Model> = Fruit::find_by_id(28).one(db).await?;
 
-    const STATEMENT: &str = r#"
-update pull_requests 
-set status = ?1
-where id = ?2"#;
+    // // Into ActiveModel
+    // let mut pear: fruit::ActiveModel = pear.unwrap().into();
 
-    client
-        .conn(
-            move |conn| match conn.execute(STATEMENT, params![status, pr_id]) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            },
-        )
-        .await
+    // // Update name attribute
+    // pear.name = Set("Sweet pear".to_owned());
+
+    // // SQL: `UPDATE "fruit" SET "name" = 'Sweet pear' WHERE "id" = 28`
+    // let pear: fruit::Model = pear.update(db).await?;
+
+    let pr: Option<entity::pull_requests::Model> = PullRequests::find_by_id(pr_id).one(&db).await?;
+    let mut pr: entity::pull_requests::ActiveModel = pr.unwrap().into();
+
+    pr.status = Set(status);
+
+    match pr.update(&db).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
+    //     let config = get_config();
+    //     let client = async_sqlite::ClientBuilder::new()
+    //         .path(config.database_path())
+    //         .open()
+    //         .await
+    //         .unwrap();
+
+    //     const STATEMENT: &str = r#"
+    // update pull_requests
+    // set status = ?1
+    // where id = ?2"#;
+
+    //     client
+    //         .conn(
+    //             move |conn| match conn.execute(STATEMENT, params![status, pr_id]) {
+    //                 Ok(_) => Ok(()),
+    //                 Err(e) => Err(e),
+    //             },
+    //         )
+    //         .await
 }
 
 pub(crate) async fn set_pull_request_approved(
     pr_id: u64,
     approved_by: String,
-) -> Result<(), async_sqlite::Error> {
-    let config = get_config();
-    let client = async_sqlite::ClientBuilder::new()
-        .path(config.database_path())
-        .open()
-        .await
-        .unwrap();
+) -> Result<(), DbErr> {
+    use entity::pull_requests::Entity as PullRequests;
+    let db = get_db().await?;
 
-    const STATEMENT: &str = r#"
-update pull_requests 
-set 
-    status = ?1,
-    approved_by = ?2
-where id = ?3"#;
+    let pr: Option<entity::pull_requests::Model> = PullRequests::find_by_id(pr_id).one(&db).await?;
+    let mut pr: entity::pull_requests::ActiveModel = pr.unwrap().into();
 
-    client
-        .conn(move |conn| {
-            match conn.execute(
-                STATEMENT,
-                params![PullRequestStatus::Approved, approved_by, pr_id],
-            ) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            }
-        })
-        .await
+    pr.approved_by = Set(Some(approved_by));
+
+    match pr.update(&db).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
 }
 
 pub(crate) async fn approve_pull(ic: &IssueCommentPayload) {
