@@ -13,7 +13,7 @@ const DEFAULT_CONFIG_FILE_NAME: &str = "yad.toml";
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct Config {
-    server: Option<ServerConfig>,
+    pub server: Option<ServerConfig>,
     repos: HashMap<String, RepoConfig>,
     pub github: GithubConfig,
     logging: Option<LoggingConfig>,
@@ -30,7 +30,7 @@ pub(crate) struct DatabaseConfig {
 pub(crate) struct ServerConfig {
     host: Option<Ipv4Addr>,
     port: Option<u16>,
-    ssl: Option<bool>,
+    pub ssl: Option<SSLConfig>,
 }
 
 const DEFAULT_HOST: &str = "127.0.0.1";
@@ -61,7 +61,7 @@ impl Default for ServerConfig {
         Self {
             host: Some(DEFAULT_HOST.parse().unwrap()),
             port: Some(DEFAULT_PORT),
-            ssl: Some(false),
+            ssl: None,
         }
     }
 }
@@ -173,4 +173,10 @@ pub(crate) struct CargoTestConfig {}
 #[derive(Debug, Deserialize)]
 pub(crate) struct CustomTestConfig {
     command: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub(crate) struct SSLConfig {
+    pub certificate: String,
+    pub private_key: String,
 }
