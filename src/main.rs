@@ -77,11 +77,7 @@ async fn start(app: Router) {
 
     let ssl_config = match config.server {
         Some(ref s) => match s.ssl {
-            Some(ref ssl) => Some(
-                RustlsConfig::from_pem_file(ssl.certificate.as_str(), ssl.private_key.as_str())
-                    .await
-                    .unwrap(),
-            ),
+            Some(ref ssl) => Some(ssl.to_pem_file().await.unwrap()),
             None => None,
         },
         None => None,

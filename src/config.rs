@@ -1,4 +1,3 @@
-use crate::CONFIG;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -8,6 +7,19 @@ use std::{
     net::{Ipv4Addr, SocketAddrV4},
     sync::Arc,
 };
+
+use crate::CONFIG;
+
+pub(crate) mod github;
+pub(crate) mod logging;
+pub(crate) mod repo;
+pub(crate) mod ssl;
+pub(crate) mod tests_config;
+
+use github::*;
+use logging::*;
+use repo::*;
+use ssl::*;
 
 const DEFAULT_CONFIG_FILE_NAME: &str = "yad.toml";
 
@@ -109,48 +121,6 @@ pub(crate) fn load_config(config_file: Option<&str>) -> Result<Config, Box<dyn E
 pub(crate) fn get_config() -> Arc<Config> {
     CONFIG.clone()
 }
-#[derive(Debug, Deserialize)]
-pub(crate) struct GithubConfig {
-    access_token: String,
-    oauth: GithubOauthConfig,
-    pub app: GithubAppConfig,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct GithubAppConfig {
-    pub app_id: String,
-    client_id: String,
-    client_secret: String,
-    pub private_key_file: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct GithubOauthConfig {
-    client_id: String,
-    client_secret: String,
-}
-#[derive(Debug, Deserialize)]
-pub(crate) struct RepoConfig {
-    owner: String,
-    secret: String,
-    tests: Option<TestsConfig>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct LoggingConfig {
-    pub journalctl: Option<JournalctlLogging>,
-    pub stdout: Option<StdoutLogging>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct JournalctlLogging {
-    /// The value to use as the `SYSLOG_IDENTIFIER` for `journalctl`. If this value is `None`,
-    /// the default value of `yad` is used.
-    pub identifier: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct StdoutLogging {}
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct ActionsConfig {
@@ -160,23 +130,4 @@ pub(crate) struct ActionsConfig {
 #[derive(Debug, Deserialize)]
 pub(crate) struct PingConfig {
     pub message: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct TestsConfig {
-    custom: Option<CustomTestConfig>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct CargoTestConfig {}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct CustomTestConfig {
-    command: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub(crate) struct SSLConfig {
-    pub certificate: String,
-    pub private_key: String,
 }
