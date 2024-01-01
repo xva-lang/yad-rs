@@ -3,7 +3,7 @@
 use crate::{config::load_config, logging::info};
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum Command {
     Ping,
     Approve,
@@ -15,8 +15,6 @@ pub(crate) enum Command {
 
     RemoveAssignment,
 }
-
-impl Command {}
 
 fn is_tag_and_not_pattern(input: &str, pattern: &String) -> Option<String> {
     if input.starts_with("@") && input != pattern {
@@ -74,14 +72,49 @@ pub(crate) fn parse_command(bot_name: &str, input: &str) -> Vec<Command> {
 
 #[cfg(test)]
 mod tests {
-    use crate::command::parse_command;
+    use crate::command::{parse_command, Command};
 
     #[test]
-    fn command() {
+    fn command_parses() {
         let comment = r"huge command
         that may have a command. @xleat r+";
 
         let commands = parse_command("xleat", comment);
         println!("{commands:#?}")
+    }
+
+    fn assert_command(bot_name: &str, input: &str, assertion: Command) {
+        assert_eq!(parse_command(bot_name, input).get(0).unwrap(), &assertion)
+    }
+
+    #[test]
+    fn ping() {
+        assert_command("bot", "@bot hello", Command::Ping);
+    }
+
+    #[test]
+    fn approve() {
+        assert_command("bot", "@bot r+", Command::Approve);
+    }
+
+    #[test]
+    fn claim_self() {
+        assert_command("bot", "@bot claim", Command::Assign { user: None });
+    }
+
+    #[test]
+    fn assign_to() {
+        assert_command(
+            "bot",
+            "@bot assign @bingbonguser",
+            Command::Assign {
+                user: Some("bingbonguser".into()),
+            },
+        );
+    }
+
+    #[test]
+    fn remove_assignment() {
+        assert_command("bot", "@bot remove-assignment", Command::RemoveAssignment);
     }
 }
